@@ -45,11 +45,17 @@
 - رفع مستندات ودفع فواتير (الشاشات تجريبية)
 - ربط `app.alkhaledlaw.com`
 
+## المستودع والنشر
+
+- GitHub (خاص): [mubasatplatform-debug/alkhaled-law](https://github.com/mubasatplatform-debug/alkhaled-law)
+- النواقص كمسائل: [Issues](https://github.com/mubasatplatform-debug/alkhaled-law/issues)
+- ربط Vercel: [`docs/DEPLOY.md`](docs/DEPLOY.md)
+
 ## التطوير
 
 ```bash
 npm install
-npm run dev          # 0.0.0.0:8080
+npm run dev
 npm run typecheck
 npm run build
 ```
