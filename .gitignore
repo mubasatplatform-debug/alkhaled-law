@@ -1,0 +1,47 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build / cache
+dist/
+.output/
+.vercel/
+.nitro/
+.tanstack/
+.vite/
+*.tsbuildinfo
+
+# env & secrets — never commit
+.env
+.env.*
+!.env.example
+
+# local databases
+*.db
+*.sqlite
+pglite-data/
+.data/
+
+# logs & debug
+*.log
+npm-debug.log*
+.preview-*.pid
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# sandbox / agent internals (not part of the product)
+.grok/
+AGENTS.md
+AGENTS.project.md
+.project_id
+.node_modules.lock
+artifacts/
+attachments/
+screenshots/
+
+# test dumps
+coverage/
