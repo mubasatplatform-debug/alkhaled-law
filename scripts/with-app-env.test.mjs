@@ -59,7 +59,18 @@ test("an explicit process-env override wins over the file", () => {
   assert.equal(merged.PATH, "/usr/bin");
 });
 
-test("the template ships auth off", () => {
+/**
+ * What this workspace's own `.grok/app-env.json` carries, or undefined when it
+ * ships none. The file is gitignored build-flag carrier, so it is present in the
+ * template workspace and absent from a checkout of an app built on it — the
+ * tests below assert the wrapper against whichever of the two they run in.
+ */
+const SHIPPED_AUTH_FLAG = readAppEnv(projectRoot()).VITE_AUTH_ENABLED;
+
+test("the template ships auth off", (t) => {
+  if (SHIPPED_AUTH_FLAG === undefined) {
+    return t.skip("no .grok/app-env.json in this workspace — nothing is shipped to assert");
+  }
   assert.deepEqual(readAppEnv(projectRoot()), { VITE_AUTH_ENABLED: "false" });
 });
 
@@ -80,7 +91,9 @@ test("the wrapped command runs with the app env applied", async () => {
     "-e",
     PRINT_FLAG,
   ]);
-  assert.equal(stdout, "false");
+  // The mechanic under test is that the wrapper hands the workspace's own
+  // app-env to the command — not which value this workspace happens to ship.
+  assert.equal(stdout, String(SHIPPED_AUTH_FLAG));
 });
 
 test("the wrapped command sees an explicit override, not the file value", async () => {
@@ -124,5 +137,5 @@ test("the CLI still runs when invoked through a symlinked path", async () => {
     "-e",
     PRINT_FLAG,
   ]);
-  assert.equal(stdout, "false");
+  assert.equal(stdout, String(SHIPPED_AUTH_FLAG));
 });
