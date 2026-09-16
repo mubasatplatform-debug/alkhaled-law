@@ -1,0 +1,30 @@
+name: Runner Matrix Smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions: {}
+
+jobs:
+  linux:
+    name: runner-linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo runner-linux-started
+
+  windows:
+    name: runner-windows
+    runs-on: windows-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo runner-windows-started
+
+  macos:
+    name: runner-macos
+    runs-on: macos-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo runner-macos-started
