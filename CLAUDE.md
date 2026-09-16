@@ -22,28 +22,40 @@ CSS v4** · **Better Auth** · **Postgres** (Neon في الإنتاج، PGLite �
 ## 2. أوامر التطوير
 
 ```bash
-npm install        # ← استخدم هذا للتثبيت (انظر التحذير أدناه)
+npm ci             # التثبيت النظيف — هو ما يشغّله CI
 npm run dev        # خادم التطوير على 0.0.0.0:8080 (منفذ ثابت — لا تغيّره)
-npm run typecheck  # tsc --noEmit — هذا ما يشغّله CI
+npm run typecheck  # tsc --noEmit
 npm run lint       # eslint .
+npm test           # node --test
+npm run build:dev  # بناء بلا آثار جانبية
 npm run format     # prettier --write .
-npm run build      # vite build ثم npm run db:migrate
+npm run build      # ⚠️ vite build ثم npm run db:migrate — يمسّ قاعدة البيانات
 npm run preview    # معاينة الإخراج المبني على 127.0.0.1:8081
-npm test           # node --test (انظر التحذير أدناه)
 ```
 
-**قبل أي دفع شغّل `npm run typecheck`** — هو البوابة الوحيدة في
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) (Node 22، `npm ci` ثم `typecheck`).
+### بوابة الجودة
 
-### تحذيران معروفان
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) يشغّل مهمة `quality-gates` على Node 22
+بهذا الترتيب، وكلها **يجب أن تكون خضراء قبل أي دفع**:
 
-| الأمر | الحالة | ماذا تفعل |
-|---|---|---|
-| `npm ci` | **يفشل** — `package-lock.json` غير متزامن مع `package.json` (`EUSAGE … Invalid: lock file's ajv@6.15.0`). هذا يُسقط خطوة `npm ci` في CI أيضاً. | استخدم `npm install`. إن أعاد توليد القفل فذلك إصلاح مقصود — التزمه. |
-| `npm test` | تمرّ 178 وتفشل 17 من أصل 195 **قبل أي تعديل منك**. | الفاشلة كلها في `scripts/*.test.mjs` وتتحقق من ملفات قالب المنصة (`AGENTS.md`، `.grok/skills/…`) غير الموجودة في هذا المستودع. ليست انحداراً — لا تطاردها. تحقق من أن عدد الفشل لم **يزد** بعد تغييرك. |
+```bash
+npm ci && npm run typecheck && npm run lint && npm test && npm run build:dev
+```
 
-`npm test` يعدّد ملفات الاختبار **صراحةً** في `package.json`. أي ملف اختبار جديد تحت
-`src/` يجب إضافته لتلك القائمة وإلا لن يُشغَّل أبداً.
+`build:dev` مقصود بدل `build`: الأخير يشغّل `db:migrate` فيمسّ قاعدة بيانات حقيقية، وبوابة
+الجودة يجب أن تبقى بلا آثار جانبية. التفاصيل وإجراء التعافي في
+[`docs/CI_RUNBOOK.md`](docs/CI_RUNBOOK.md).
+
+### ملاحظات على الاختبارات
+
+- `npm test` يعدّد ملفات الاختبار **صراحةً** في `package.json`. أي ملف اختبار جديد تحت
+  `src/` يجب إضافته لتلك القائمة وإلا لن يُشغَّل أبداً.
+- 5 اختبارات في `scripts/` تُعلَّم **skipped** هنا وهذا متوقّع: هي فحوص ذاتية لقالب المنصة
+  تقرأ ملفات في `.gitignore` (`.grok/skills/og/SKILL.md`، `AGENTS.md`، `.grok/app-env.json`)
+  غير موجودة في مستودع منتج. تتخطّى نفسها عند غياب الملف بدل أن تفشل.
+- **لا تجعل اختباراً يقرأ حالة المستودع المحيطة.** `injectGrokPwaHead` مثلاً يستشير `cwd`
+  بحثاً عن `src/lib/og/site.json` و`public/og.jpg`؛ مرّر `cwd` لمجلد مؤقت فارغ لتختبر الدالة
+  لا هوية التطبيق.
 
 ---
 
@@ -252,9 +264,11 @@ export const listThings = createServerFn({ method: "POST" })
 
 ## 12. قبل أن تنهي أي مهمة
 
-1. `npm run typecheck` نظيف.
-2. `npm run format` (أو التزم بأسلوب Prettier يدوياً).
-3. عدد فشل `npm test` لم يزد عن 17.
-4. أي جدول جديد له ملف هجرة، وأي دالة خادم جديدة عليها `authMiddleware` + تقييد بـ
+1. بوابة الجودة كاملة خضراء:
+   `npm ci && npm run typecheck && npm run lint && npm test && npm run build:dev`.
+   **صفر فشل** في الاختبارات — الـ5 المتخطّاة وحدها متوقّعة.
+2. التزم بأسلوب Prettier في الملفات التي مسستها. لا تشغّل `npm run format` على المستودع
+   كله: عدة ملفات Markdown قائمة غير منسّقة، فستولّد ضجيجاً لا علاقة له بتغييرك.
+3. أي جدول جديد له ملف هجرة، وأي دالة خادم جديدة عليها `authMiddleware` + تقييد بـ
    `context.userId`.
-5. النصوص الظاهرة عربية، والتنسيق RTL سليم.
+4. النصوص الظاهرة عربية، والتنسيق RTL سليم.
