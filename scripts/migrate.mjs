@@ -18,7 +18,9 @@ import { dirname, join } from "node:path";
 import pg from "pg";
 import { pendingMigrations } from "./migration-plan.mjs";
 
-const databaseUrl = process.env.DATABASE_URL;
+// Same rule as src/lib/db.ts: whitespace-only means unset, and stray
+// whitespace around a pasted value must not reach the driver.
+const databaseUrl = process.env.DATABASE_URL?.trim() || undefined;
 if (!databaseUrl) {
   console.log(
     "[migrate] DATABASE_URL not set — skipping (the PGLite fallback migrates itself).",

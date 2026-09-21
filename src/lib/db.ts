@@ -7,8 +7,9 @@ export type DbSource = "neon" | "pglite";
 // "unset" — otherwise production would silently run on the PGLite fallback.
 const rawDatabaseUrl =
   typeof process !== "undefined" ? process.env.DATABASE_URL : undefined;
-const databaseUrl =
-  rawDatabaseUrl && rawDatabaseUrl.trim() ? rawDatabaseUrl : undefined;
+// Trimmed as well as checked: a value pasted with a trailing newline would
+// otherwise reach pg with the newline glued to the sslmode parameter.
+const databaseUrl = rawDatabaseUrl?.trim() || undefined;
 
 /**
  * Active backend: real **Neon** when `DATABASE_URL` is set (deployed / configured
