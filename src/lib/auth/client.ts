@@ -143,6 +143,21 @@ export async function signIn(
     return;
   }
 
+  // Prefer the deployment's own Google client when it has one; the server only
+  // registers the social provider when both credentials are present, so a failure
+  // here just means this deployment still federates through the broker.
+  if (providerId === "grok-google") {
+    const direct = await authClient.signIn.social({
+      provider: "google",
+      callbackURL,
+      errorCallbackURL,
+    });
+    if (!direct.error && direct.data?.url) {
+      window.location.href = direct.data.url;
+      return;
+    }
+  }
+
   const { data, error } = await authClient.signIn.oauth2({
     providerId,
     callbackURL,
