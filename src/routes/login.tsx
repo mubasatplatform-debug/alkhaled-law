@@ -60,6 +60,9 @@ function mapAuthError(message: string) {
   if (m.includes("invalid") || m.includes("credential")) return "البريد أو كلمة المرور غير صحيحة.";
   if (m.includes("password") && m.includes("short")) return "كلمة المرور ٨ أحرف على الأقل.";
   if (m.includes("password")) return "تعذّر قبول كلمة المرور. استخدم ٨ أحرف على الأقل.";
+  // A provider with no client id/secret configured fails before any redirect.
+  if (m.includes("provider") || m.includes("oauth") || m.includes("internal") || m.includes("500"))
+    return "الدخول عبر هذا المزوّد غير متاح حالياً. استخدم البريد وكلمة المرور.";
   return "تعذّر إتمام العملية. حاول مرة أخرى.";
 }
 
@@ -97,11 +100,19 @@ function Login() {
     return <Navigate to={dest} />;
   }
 
-  const startSocial = (providerId: string) => {
+  const startSocial = async (providerId: string) => {
     if (!authEnabled || busy) return;
     setError(null);
     setBusy(providerId.includes("google") ? "google" : "x");
-    signIn(providerId, { callbackURL: dest });
+    try {
+      await signIn(providerId, { callbackURL: dest });
+    } catch (err) {
+      // A provider whose credentials are missing fails server-side. Without this
+      // catch the rejection is unhandled, busy stays set, and the button sits on
+      // "جارٍ التحويل…" forever with nothing shown to the visitor.
+      setError(mapAuthError(err instanceof Error ? err.message : ""));
+      setBusy(null);
+    }
   };
 
   const submitEmail = async (e: FormEvent) => {
@@ -242,7 +253,7 @@ function Login() {
                     key={p.providerId}
                     type="button"
                     disabled={Boolean(busy)}
-                    onClick={() => startSocial(p.providerId)}
+                    onClick={() => void startSocial(p.providerId)}
                     className="flex h-12 w-full items-center justify-center gap-2.5 rounded-full border border-line bg-paper text-sm font-medium text-ink transition-colors hover:border-lime/40"
                   >
                     {google ? <GoogleMark /> : <XMark />}
