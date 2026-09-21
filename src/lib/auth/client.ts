@@ -163,6 +163,10 @@ export async function signIn(
     callbackURL,
     errorCallbackURL,
   });
+  // Both routes refused: this deployment has no usable credentials for the
+  // provider. Say exactly that instead of a generic retry prompt the visitor
+  // cannot act on — retrying will fail the same way until the env vars exist.
+  if (error && providerId === "grok-google") throw new Error("provider_unavailable");
   if (error) throw new Error(error.message ?? "Sign-in failed");
   if (data?.url) window.location.href = data.url;
 }
