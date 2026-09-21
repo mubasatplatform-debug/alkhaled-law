@@ -10,7 +10,7 @@
 4. Environment Variables من [`.env.example`](../.env.example):
    - `DATABASE_URL` (Neon) — إلزامي للإنتاج
    - `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL`
-   - `XAI_API_KEY` للصوت والاستشارة
+   - `XAI_API_KEY` أو `GEMINI_API_KEY` (مشروع مفعَّل الفوترة) للصوت والاستشارة
    - Google / X اختيارياً
 5. Deploy
 6. بعد نجاح التجربة: Project → Domains → `app.alkhaledlaw.com`
