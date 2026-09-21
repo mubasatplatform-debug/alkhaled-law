@@ -20,6 +20,7 @@ import { RequestComposer } from "@/components/request-composer";
 import { StatusPill } from "@/components/status-pill";
 import { clientById, useOffice } from "@/lib/store";
 import { useMergedOffice } from "@/lib/office-live";
+import { useOfficeHours } from "@/lib/office-hours-api";
 import {
   clientPreference,
   nextFor,
@@ -59,6 +60,7 @@ function ClientFile() {
     cancelAppointment,
   } = useOffice();
   const { clients, requests, appointments, cancelLive } = useMergedOffice();
+  const { bufferMin } = useOfficeHours().hours;
   const client = clientById(clientId, clients);
   const related = requests.filter((r) => r.clientId === clientId);
   const activity = messages.filter((m) => m.clientId === clientId);
@@ -291,7 +293,7 @@ function ClientFile() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted">
-              يفضّل {preferenceLabel(prefer)} · الفاصل 15 د
+              يفضّل {preferenceLabel(prefer)} · الفاصل {bufferMin} د
             </p>
             <Button asChild variant="outline" size="sm">
               <Link to="/office/appointments">المواعيد الذكية</Link>

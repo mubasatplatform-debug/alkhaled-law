@@ -11,6 +11,8 @@ import {
   signIn,
 } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { clockLabel, describeDays } from "@/lib/office-hours";
+import { useOfficeHours } from "@/lib/office-hours-api";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/login")({
@@ -83,6 +85,7 @@ function Login() {
   const [showPass, setShowPass] = useState(false);
   const [busy, setBusy] = useState<"google" | "x" | "email" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { hours } = useOfficeHours();
 
   if (isPending) {
     return (
@@ -176,7 +179,7 @@ function Login() {
               <span className="flex size-9 items-center justify-center rounded-full bg-paper/15">
                 <Lock className="size-4" />
               </span>
-              الأحد–الخميس · 9 صباحاً–5 مساءً
+              {describeDays(hours.workDays)} · {clockLabel(hours.startMin)}–{clockLabel(hours.endMin)}
             </li>
           </ul>
         </div>

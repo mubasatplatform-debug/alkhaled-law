@@ -1,4 +1,21 @@
+import { DEFAULT_OFFICE_HOURS, SLOT_MIN, type OfficeHours } from "./office-hours.ts";
 import type { Appointment, Client } from "./types";
+
+/**
+ * The hours every scheduling function below works against. They start at the
+ * defaults and are replaced with the office's saved hours: the server loads them
+ * before computing slots or accepting a booking, and the browser once the shell
+ * has fetched them. The hours are office-wide, so one shared value is right.
+ */
+let activeHours: OfficeHours = DEFAULT_OFFICE_HOURS;
+
+export function setActiveOfficeHours(hours: OfficeHours) {
+  activeHours = hours;
+}
+
+export function getActiveOfficeHours(): OfficeHours {
+  return activeHours;
+}
 
 /**
  * The office day in Riyadh. The server runs in UTC, so deriving the date from
@@ -19,10 +36,7 @@ export function todayISO(now: Date = new Date()): string {
  * anything that must stay stable across a midnight boundary.
  */
 export const TODAY = todayISO();
-export const WORK_START = 9 * 60;
-export const WORK_END = 17 * 60;
-export const SLOT = 30;
-export const BUFFER = 15;
+export const SLOT = SLOT_MIN;
 // Demo occupancy is relative to today, so the office screens never open on a
 // day that has already passed.
 export const OFFICE_SEED_OCC: { date: string; startMin: number; durationMin: number }[] = [
@@ -113,8 +127,17 @@ export function formatHour(min: number) {
 }
 
 export function isWorkday(iso: string) {
-  const day = parseDate(iso).getDay();
-  return day >= 0 && day <= 4;
+  return activeHours.workDays.includes(parseDate(iso).getDay());
+}
+
+/** Whether a session fits inside the office day on an open day. */
+export function withinOfficeHours(date: string, startMin: number, durationMin: number) {
+  return (
+    isWorkday(date) &&
+    startMin >= activeHours.startMin &&
+    startMin + durationMin <= activeHours.endMin &&
+    (startMin - activeHours.startMin) % SLOT === 0
+  );
 }
 
 export function durationFor(kind: Appointment["kind"]) {
@@ -135,7 +158,7 @@ export function activeOnDate(list: Appointment[], date: string) {
 }
 
 function blocks(a: Appointment) {
-  return { start: a.startMin, end: a.startMin + a.durationMin + BUFFER };
+  return { start: a.startMin, end: a.startMin + a.durationMin + activeHours.bufferMin };
 }
 
 export function hasConflict(
@@ -150,7 +173,7 @@ export function hasConflict(
   return activeOnDate(list, date).some((a) => {
     if (a.id === exceptId) return false;
     const b = blocks(a);
-    return start < b.end && end + BUFFER > b.start;
+    return start < b.end && end + activeHours.bufferMin > b.start;
   });
 }
 
@@ -164,7 +187,7 @@ export function freeSlots(
 ): Slot[] {
   if (!isWorkday(date)) return [];
   const out: Slot[] = [];
-  for (let t = WORK_START; t + durationMin <= WORK_END; t += SLOT) {
+  for (let t = activeHours.startMin; t + durationMin <= activeHours.endMin; t += SLOT) {
     if (!hasConflict(list, date, t, durationMin, exceptId)) {
       out.push({ startMin: t, label: formatTime(t) });
     }
@@ -205,7 +228,7 @@ export function smartSuggest(
     const dayAppts = activeOnDate(list, date);
     const near = dayAppts.some((a) => {
       const end = a.startMin + a.durationMin;
-      return Math.abs(s.startMin - end - BUFFER) <= SLOT;
+      return Math.abs(s.startMin - end - activeHours.bufferMin) <= SLOT;
     });
     if (near) score += 3;
     if (s.startMin === 13 * 60) score -= 2;
@@ -218,7 +241,8 @@ export function smartSuggest(
 export function gaps(list: Appointment[], date: string) {
   const day = activeOnDate(list, date).slice().sort((a, b) => a.startMin - b.startMin);
   const result: { startMin: number; minutes: number; label: string }[] = [];
-  let cursor = WORK_START;
+  const { startMin: dayStart, endMin: dayEnd, bufferMin } = activeHours;
+  let cursor = dayStart;
   for (const a of day) {
     const start = a.startMin;
     if (start - cursor >= SLOT) {
@@ -229,13 +253,13 @@ export function gaps(list: Appointment[], date: string) {
         label: `${formatTime(cursor)} · ${minutes} د`,
       });
     }
-    cursor = Math.max(cursor, a.startMin + a.durationMin + BUFFER);
+    cursor = Math.max(cursor, a.startMin + a.durationMin + bufferMin);
   }
-  if (WORK_END - cursor >= SLOT) {
+  if (dayEnd - cursor >= SLOT) {
     result.push({
       startMin: cursor,
-      minutes: WORK_END - cursor,
-      label: `${formatTime(cursor)} · ${WORK_END - cursor} د`,
+      minutes: dayEnd - cursor,
+      label: `${formatTime(cursor)} · ${dayEnd - cursor} د`,
     });
   }
   return result;

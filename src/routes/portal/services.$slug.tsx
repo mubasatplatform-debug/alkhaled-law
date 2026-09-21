@@ -3,6 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, Clock, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SERVICE_META, type ServiceSlug } from "@/lib/types";
+import { useOfficeHours } from "@/lib/office-hours-api";
 import { useOffice } from "@/lib/store";
 import {
   todayISO,
@@ -22,6 +23,8 @@ function ServicePage() {
   const { slug } = Route.useParams();
   const navigate = useNavigate();
   const { addIntake, addRequest, addAppointment, appointments, clients } = useOffice();
+  // Re-renders the day and slot pickers once the saved hours load.
+  useOfficeHours();
   const key = (["consult", "review", "draft", "case"].includes(slug)
     ? slug
     : "consult") as ServiceSlug;

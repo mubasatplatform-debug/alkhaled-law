@@ -1,4 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
+import { describeOfficeHours } from "@/lib/office-hours";
+import { applyStoredOfficeHours } from "@/lib/office-hours-api";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
 import {
@@ -6,8 +8,10 @@ import {
   addDays,
   dayName,
   formatTime,
+  getActiveOfficeHours,
   hasConflict,
   smartSuggest,
+  withinOfficeHours,
   OFFICE_SEED_OCC,
   type Preference,
 } from "@/lib/schedule";
@@ -229,6 +233,9 @@ async function insertBooking(
   input: { date: string; startMin: number; kind: BookingCard["kind"]; summary: string },
 ): Promise<BookingCard | { error: string }> {
   const durationMin = 30;
+  if (!withinOfficeHours(input.date, input.startMin, durationMin)) {
+    return { error: "هذا الوقت خارج ساعات عمل المكتب. اختر وقتاً من القائمة." };
+  }
   if (hasConflict(asAppts(occ), input.date, input.startMin, durationMin)) {
     return { error: "هذا الوقت متعارض مع موعد قائم. اختر وقتاً آخر من القائمة." };
   }
@@ -286,7 +293,7 @@ async function askModel(history: ChatTurn[], text: string, occ: Occupancy[]): Pr
 
 في كل رد افعل الأمرين معاً:
 1) استشارة أولية عامة وفق الأنظمة السعودية (3–6 جمل عملية: ما الذي يُحفظ، الخطوة التالية، متى يلزم محامٍ). ليست بديلاً عن رأي المحامي بعد الاطلاع على المستندات.
-2) حجز الاستشارة المرئية داخل النظام: الأحد–الخميس 9ص–5م، 30 دقيقة، فاصل 15د. لا تخترع موعداً خارج القائمة.
+2) حجز الاستشارة المرئية داخل النظام: ${describeOfficeHours(getActiveOfficeHours())}. لا تخترع موعداً خارج القائمة.
 
 أرجع JSON فقط:
 {"reply":"...","slots":[{"date":"YYYY-MM-DD","startMin":900,"label":"الثلاثاء 3:00 م"}],"book":null}
@@ -363,6 +370,7 @@ export const sendConcierge = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<SendResult> => {
     const text = data.text.trim().slice(0, 800);
     if (!text) throw new Error("empty");
+    await applyStoredOfficeHours();
     const occupancy = await globalOcc(data.occupancy ?? []);
     const history = await loadHistory(context.userId);
     await saveTurn(context.userId, "user", text);
@@ -396,6 +404,7 @@ export const confirmConciergeSlot = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: { date: string; startMin: number; occupancy: Occupancy[]; summary?: string }) => input)
   .handler(async ({ data, context }): Promise<{ turn: ChatTurn }> => {
+    await applyStoredOfficeHours();
     const occupancy = await globalOcc(data.occupancy ?? []);
     const kind = kindFrom(data.summary ?? "");
     const result = await insertBooking(context.userId, occupancy, {
