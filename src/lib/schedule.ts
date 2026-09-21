@@ -1,16 +1,36 @@
 import type { Appointment, Client } from "./types";
 
-export const TODAY = "2026-09-15";
+/**
+ * The office day in Riyadh. The server runs in UTC, so deriving the date from
+ * the raw clock would roll over three hours early every night.
+ */
+export function todayISO(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Riyadh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+/**
+ * Was a frozen "2026-09-15" string, which made the assistant offer slots in the
+ * past once that day passed. It now tracks the real office day; keep it out of
+ * anything that must stay stable across a midnight boundary.
+ */
+export const TODAY = todayISO();
 export const WORK_START = 9 * 60;
 export const WORK_END = 17 * 60;
 export const SLOT = 30;
 export const BUFFER = 15;
+// Demo occupancy is relative to today, so the office screens never open on a
+// day that has already passed.
 export const OFFICE_SEED_OCC: { date: string; startMin: number; durationMin: number }[] = [
   { date: TODAY, startMin: 10 * 60, durationMin: 30 },
   { date: TODAY, startMin: 12 * 60 + 30, durationMin: 45 },
   { date: TODAY, startMin: 16 * 60, durationMin: 30 },
-  { date: "2026-09-16", startMin: 11 * 60, durationMin: 30 },
-  { date: "2026-09-17", startMin: 9 * 60 + 30, durationMin: 45 },
+  { date: addDays(TODAY, 1), startMin: 11 * 60, durationMin: 30 },
+  { date: addDays(TODAY, 2), startMin: 9 * 60 + 30, durationMin: 45 },
 ];
 
 
@@ -248,9 +268,7 @@ export function nowMinutes() {
   return n.getHours() * 60 + n.getMinutes();
 }
 
-export function todayISO() {
-  return TODAY;
-}
+
 
 export function minutesUntil(date: string, startMin: number) {
   const today = todayISO();

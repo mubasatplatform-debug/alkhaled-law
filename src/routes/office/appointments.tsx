@@ -18,7 +18,7 @@ import type { Appointment, Client } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   SLOT,
-  TODAY,
+  todayISO,
   WORK_END,
   WORK_START,
   activeOnDate,
@@ -56,7 +56,7 @@ function AppointmentsPage() {
     confirmSlot,
   } = useOffice();
   const { appointments, clients, cancelLive, rescheduleLive } = useMergedOffice();
-  const [selected, setSelected] = useState(TODAY);
+  const [selected, setSelected] = useState(todayISO);
   const [focus, setFocus] = useState<string | null>(null);
   const [composer, setComposer] = useState<"off" | "create" | "move">("off");
   const [slotMin, setSlotMin] = useState<number | null>(null);

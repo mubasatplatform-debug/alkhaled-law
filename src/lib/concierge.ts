@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
 import {
-  TODAY,
+  todayISO,
   addDays,
   dayName,
   formatTime,
@@ -92,7 +92,7 @@ function kindFrom(text: string): BookingCard["kind"] {
 function labeledSlots(occ: Occupancy[], prefer: Preference, max = 4): SlotChip[] {
   const out: SlotChip[] = [];
   for (let i = 0; i < 12 && out.length < max; i++) {
-    const date = addDays(TODAY, i);
+    const date = addDays(todayISO(), i);
     const slots = smartSuggest(asAppts(occ), date, 30, prefer, undefined, 3);
     for (const s of slots) {
       out.push({
