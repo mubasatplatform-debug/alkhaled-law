@@ -14,6 +14,7 @@ import { Route as ConceptRouteImport } from './routes/concept'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OfficeRouteImport } from './routes/office'
 import { Route as PortalRouteImport } from './routes/portal'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ApiRtcRouteImport } from './routes/api/rtc'
 import { Route as ConsultIdRouteImport } from './routes/consult.$id'
 import { Route as OfficeIndexRouteImport } from './routes/office/index'
@@ -59,6 +60,11 @@ const OfficeRoute = OfficeRouteImport.update({
 const PortalRoute = PortalRouteImport.update({
   id: '/portal',
   path: '/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiRtcRoute = ApiRtcRouteImport.update({
@@ -173,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/office': typeof OfficeRouteWithChildren
   '/portal': typeof PortalRouteWithChildren
+  '/terms': typeof TermsRoute
   '/api/rtc': typeof ApiRtcRoute
   '/consult/$id': typeof ConsultIdRoute
   '/office/appointments': typeof OfficeAppointmentsRoute
@@ -199,6 +206,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/concept': typeof ConceptRoute
   '/login': typeof LoginRoute
+  '/terms': typeof TermsRoute
   '/api/rtc': typeof ApiRtcRoute
   '/consult/$id': typeof ConsultIdRoute
   '/office/appointments': typeof OfficeAppointmentsRoute
@@ -227,6 +235,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/office': typeof OfficeRouteWithChildren
   '/portal': typeof PortalRouteWithChildren
+  '/terms': typeof TermsRoute
   '/api/rtc': typeof ApiRtcRoute
   '/consult/$id': typeof ConsultIdRoute
   '/office/appointments': typeof OfficeAppointmentsRoute
@@ -257,6 +266,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/office'
     | '/portal'
+    | '/terms'
     | '/api/rtc'
     | '/consult/$id'
     | '/office/appointments'
@@ -283,6 +293,7 @@ export interface FileRouteTypes {
     | '/'
     | '/concept'
     | '/login'
+    | '/terms'
     | '/api/rtc'
     | '/consult/$id'
     | '/office/appointments'
@@ -310,6 +321,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/office'
     | '/portal'
+    | '/terms'
     | '/api/rtc'
     | '/consult/$id'
     | '/office/appointments'
@@ -339,6 +351,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OfficeRoute: typeof OfficeRouteWithChildren
   PortalRoute: typeof PortalRouteWithChildren
+  TermsRoute: typeof TermsRoute
   ApiRtcRoute: typeof ApiRtcRoute
   ConsultIdRoute: typeof ConsultIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -379,6 +392,13 @@ declare module '@tanstack/react-router' {
       path: '/portal'
       fullPath: '/portal'
       preLoaderRoute: typeof PortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/rtc': {
@@ -601,6 +621,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OfficeRoute: OfficeRouteWithChildren,
   PortalRoute: PortalRouteWithChildren,
+  TermsRoute: TermsRoute,
   ApiRtcRoute: ApiRtcRoute,
   ConsultIdRoute: ConsultIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

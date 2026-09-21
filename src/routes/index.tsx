@@ -369,7 +369,7 @@ function Home() {
           <div className="flex gap-5 text-sm text-paper/80 sm:ms-auto">
             <a href="#contact">تواصل معنا</a>
             <Link to="/office">لوحة المكتب</Link>
-            <span>شروط الخدمة</span>
+            <Link to="/terms">شروط الخدمة</Link>
           </div>
         </div>
       </footer>
