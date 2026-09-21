@@ -4,6 +4,15 @@ import { applyStoredOfficeHours } from "@/lib/office-hours-api";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
 import {
+  candidateAudio,
+  candidateText,
+  geminiGenerate,
+  geminiModels,
+  pickProvider,
+  playableAudio,
+  toGeminiContents,
+} from "@/lib/ai-provider";
+import {
   todayISO,
   addDays,
   dayName,
@@ -282,14 +291,11 @@ async function insertBooking(
 }
 
 async function askModel(history: ChatTurn[], text: string, occ: Occupancy[]): Promise<AiJson> {
-  const apiKey = process.env.XAI_API_KEY;
-  if (!apiKey) return fallbackReply(text, occ);
+  const provider = pickProvider(process.env);
+  if (!provider) return fallbackReply(text, occ);
   const slots = labeledSlots(occ, preferFrom(text));
   const slotLines = slots.map((s) => `${s.label} (${s.date} ${s.startMin})`).join(" | ");
-  const messages = [
-    {
-      role: "system" as const,
-      content: `أنت مساعد مكتب المحامي خالد العنزي في الرياض. تتحدث عربية مهنية مختصرة بلاMarkdown.
+  const system = `أنت مساعد مكتب المحامي خالد العنزي في الرياض. تتحدث عربية مهنية مختصرة بلاMarkdown.
 
 في كل رد افعل الأمرين معاً:
 1) استشارة أولية عامة وفق الأنظمة السعودية (3–6 جمل عملية: ما الذي يُحفظ، الخطوة التالية، متى يلزم محامٍ). ليست بديلاً عن رأي المحامي بعد الاطلاع على المستندات.
@@ -302,9 +308,24 @@ async function askModel(history: ChatTurn[], text: string, occ: Occupancy[]): Pr
 - إن طلب أقرب موعد أو أكد وقتاً من القائمة: ضع book {"date","startMin","kind":"video"|"review","summary"} وslots فارغة.
 - لا تحجز من دون تأكيد أو طلب صريح للحجز.
 - kind=review إذا كان الموضوع عقداً، وإلا video.
-الأوقات المتاحة الآن: ${slotLines || "لا خانات"}`,
-    },
-    ...history.slice(-8).map((t) => ({
+الأوقات المتاحة الآن: ${slotLines || "لا خانات"}`;
+  const recent = history.slice(-8);
+  const raw =
+    provider === "gemini"
+      ? await askGemini(system, recent, text)
+      : await askXai(system, recent, text);
+  const parsed = parseJson(raw ?? "");
+  if (!parsed?.reply) return fallbackReply(text, occ);
+  if (!parsed.book && (!parsed.slots || parsed.slots.length === 0)) {
+    parsed.slots = slots;
+  }
+  return parsed;
+}
+
+async function askXai(system: string, history: ChatTurn[], text: string): Promise<string | null> {
+  const messages = [
+    { role: "system" as const, content: system },
+    ...history.map((t) => ({
       role: t.role as "user" | "assistant",
       content: t.content,
     })),
@@ -314,7 +335,7 @@ async function askModel(history: ChatTurn[], text: string, occ: Occupancy[]): Pr
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${process.env.XAI_API_KEY}`,
     },
     body: JSON.stringify({
       model: "grok-4.5",
@@ -324,16 +345,34 @@ async function askModel(history: ChatTurn[], text: string, occ: Occupancy[]): Pr
       response_format: { type: "json_object" },
     }),
   });
-  if (!res.ok) return fallbackReply(text, occ);
+  if (!res.ok) return null;
   const body = (await res.json()) as {
     choices?: { message?: { content?: string } }[];
   };
-  const parsed = parseJson(body.choices?.[0]?.message?.content ?? "");
-  if (!parsed?.reply) return fallbackReply(text, occ);
-  if (!parsed.book && (!parsed.slots || parsed.slots.length === 0)) {
-    parsed.slots = slots;
-  }
-  return parsed;
+  return body.choices?.[0]?.message?.content ?? null;
+}
+
+// The output budget is above xAI's 700 on purpose: on thinking models the
+// thoughts share it, and an exhausted budget comes back as empty text.
+async function askGemini(
+  system: string,
+  history: ChatTurn[],
+  text: string,
+): Promise<string | null> {
+  const body = await geminiGenerate(
+    process.env.GEMINI_API_KEY ?? "",
+    geminiModels(process.env).chat,
+    {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: toGeminiContents(history, text),
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: 0.35,
+        maxOutputTokens: 1500,
+      },
+    },
+  );
+  return body ? candidateText(body) : null;
 }
 
 async function globalOcc(extra: Occupancy[]): Promise<Occupancy[]> {
@@ -467,14 +506,41 @@ export const transcribeVoice = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: { audio: string; mime: string }) => input)
   .handler(async ({ data }): Promise<{ text: string } | { error: string }> => {
-    const apiKey = process.env.XAI_API_KEY;
-    if (!apiKey) return { error: "التفريغ الصوتي غير متاح الآن." };
+    const provider = pickProvider(process.env);
+    if (!provider) return { error: "التفريغ الصوتي غير متاح الآن." };
     if (!data.audio || data.audio.length > MAX_AUDIO_B64) {
       return { error: "التسجيل طويل. اختصر إلى أقل من أربعين ثانية." };
     }
     const mime = data.mime.startsWith("audio/") ? data.mime.split(";")[0] : "audio/webm";
     const buf = Buffer.from(data.audio, "base64");
     if (buf.length < 600) return { error: "التسجيل قصير جداً. أعد التسجيل." };
+
+    if (provider === "gemini") {
+      // Gemini takes the browser's own container inline (webm/opus, mp4/aac, wav).
+      const body = await geminiGenerate(
+        process.env.GEMINI_API_KEY ?? "",
+        geminiModels(process.env).stt,
+        {
+          contents: [
+            {
+              parts: [
+                {
+                  text: "فرّغ هذا التسجيل الصوتي حرفياً باللغة العربية. أرجع النص المنطوق فقط دون أي مقدمة أو تعليق. إن لم يكن فيه كلام مفهوم فأرجع نصاً فارغاً.",
+                },
+                { inlineData: { mimeType: mime, data: data.audio } },
+              ],
+            },
+          ],
+          generationConfig: { temperature: 0, maxOutputTokens: 600 },
+        },
+      );
+      if (!body) return { error: "تعذّر تفريغ الصوت. أعد المحاولة أو اكتب." };
+      const heard = candidateText(body);
+      if (!heard) return { error: "لم أسمع كلاماً واضحاً. أعد التسجيل." };
+      return { text: heard.slice(0, 800) };
+    }
+
+    const apiKey = process.env.XAI_API_KEY;
 
     const blob = new Blob([buf], { type: mime });
     const file = new File([blob], `voice.${audioExt(mime)}`, { type: mime });
@@ -508,10 +574,30 @@ export const speakConcierge = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: { text: string }) => input)
   .handler(async ({ data }): Promise<{ audio: string; mime: string } | { error: string }> => {
-    const apiKey = process.env.XAI_API_KEY;
-    if (!apiKey) return { error: "الصوت غير متاح الآن." };
+    const provider = pickProvider(process.env);
+    if (!provider) return { error: "الصوت غير متاح الآن." };
     const text = data.text.trim().slice(0, 420);
     if (!text) return { error: "لا نص للتشغيل." };
+    if (provider === "gemini") {
+      const models = geminiModels(process.env);
+      const body = await geminiGenerate(
+        process.env.GEMINI_API_KEY ?? "",
+        models.tts,
+        {
+          contents: [{ parts: [{ text }] }],
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: models.voice } } },
+          },
+        },
+        45_000,
+      );
+      const clip = body ? candidateAudio(body) : null;
+      if (!clip) return { error: "تعذّر تشغيل الصوت." };
+      const { audio, mime } = playableAudio(clip.data, clip.mime);
+      return { audio: audio.toString("base64"), mime };
+    }
+    const apiKey = process.env.XAI_API_KEY;
     const res = await fetch("https://api.x.ai/v1/tts", {
       method: "POST",
       headers: {

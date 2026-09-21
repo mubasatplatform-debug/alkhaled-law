@@ -17,7 +17,7 @@
 1. إنشاء قاعدة Neon وحقن `DATABASE_URL`
 2. توليد `BETTER_AUTH_SECRET` وضبط `BETTER_AUTH_URL` على النطاق
 3. (اختياري للدخول الاجتماعي) Google و X OAuth
-4. حقن `XAI_API_KEY` حتى يعمل الصوت والاستشارة
+4. حقن `XAI_API_KEY` أو `GEMINI_API_KEY` (مشروع مفعَّل الفوترة) حتى يعمل الصوت والاستشارة
 5. تجربة: تسجيل عميل جديد → حجز من المساعد → ظهور الموعد في `/office/appointments` → دخول الغرفة من الجوال والحاسوب معاً
 6. ربط `app.alkhaledlaw.com` بعد نجاح التجربة على عنوان Vercel
 

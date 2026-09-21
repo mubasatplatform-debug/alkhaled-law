@@ -203,7 +203,7 @@ export const listThings = createServerFn({ method: "POST" })
    صفوف في القاعدة.
 5. **المنافذ عقد ثابت**: dev على `0.0.0.0:8080`، المعاينة على `127.0.0.1:8081`،
    كلاهما `strictPort`.
-6. **مفاتيح المساعد اختيارية بصمت**: بدون `XAI_API_KEY` يسقط
+6. **مفاتيح المساعد اختيارية بصمت**: بدون `XAI_API_KEY` أو `GEMINI_API_KEY` (الاختيار في [`ai-provider.ts`](src/lib/ai-provider.ts)) يسقط
    [`concierge.ts`](src/lib/concierge.ts) إلى `fallbackReply()` والصوت يعيد رسالة خطأ —
    بلا تعطّل. لا تستنتج من رد ضعيف أن المنطق مكسور قبل فحص المفتاح.
 7. **WebRTC عبر STUN فقط** — لا خادم TURN. الفشل خلف NAT صارم متوقّع (مسجّل في
@@ -255,7 +255,7 @@ export const listThings = createServerFn({ method: "POST" })
 |---|---|
 | `DATABASE_URL` | PGLite مؤقت — بيانات تُمسح مع كل إقلاع |
 | `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` | سرّ معاينة يُولَّد لكل عملية |
-| `XAI_API_KEY` | المساعد يردّ بمنطق احتياطي، والصوت معطّل |
+| `XAI_API_KEY` / `GEMINI_API_KEY` | المساعد يردّ بمنطق احتياطي، والصوت معطّل. مفتاح Gemini من مشروع **مفعَّل الفوترة** فقط — الخطة المجانية تستعمل المحتوى للتدريب وحصتها 20 طلباً يومياً للنموذج |
 | `VITE_AUTH_ENABLED` | الافتراضي «مفعّل»؛ `false` يفرض مستخدم `dev-user` |
 
 النشر: Vercel، `npm run build`، كل دفع على `main` ينشر. التفاصيل في
