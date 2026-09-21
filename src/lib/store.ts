@@ -10,7 +10,6 @@ import type {
   Role,
   ServiceOffer,
   ServiceSlug,
-  TaskItem,
 } from "./types";
 import { SERVICE_LABELS } from "./types";
 import {
@@ -38,15 +37,12 @@ type OfficeState = {
   clients: Client[];
   requests: LegalRequest[];
   appointments: Appointment[];
-  tasks: TaskItem[];
   messages: ChatMessage[];
   calls: CallNote[];
   documents: LegalDoc[];
   offers: ServiceOffer[];
   setRole: (role: Role) => void;
   setPortalOnboarded: () => void;
-  toggleTask: (id: string) => void;
-  addTask: (title: string) => void;
   addIntake: (intake: Intake) => string;
   addRequest: (input: { clientId: string; service: ServiceSlug }) => string;
   ensurePortalClient: (name: string) => string;
@@ -263,12 +259,6 @@ const appointments: Appointment[] = [
   }),
 ];
 
-const tasks: TaskItem[] = [
-  { id: "t1", title: "مراجعة مسودة العقد", done: false },
-  { id: "t2", title: "اعتماد عرض الخدمة", done: false },
-  { id: "t3", title: "تسليم التقرير النهائي", done: false },
-];
-
 const messages: ChatMessage[] = [
   {
     id: "m1",
@@ -367,24 +357,12 @@ export const useOffice = create<OfficeState>((set) => ({
   clients,
   requests,
   appointments,
-  tasks,
   messages,
   calls: [],
   documents,
   offers,
   setRole: (role) => set({ role }),
   setPortalOnboarded: () => set({ portalOnboarded: true }),
-  toggleTask: (id) =>
-    set((s) => ({
-      tasks: s.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
-    })),
-  addTask: (title) =>
-    set((s) => ({
-      tasks: [
-        ...s.tasks,
-        { id: `t-${Date.now()}`, title: title.trim(), done: false },
-      ],
-    })),
   addIntake: (intake) => {
     const id = `r${Date.now()}`;
     const clientId = intake.name.trim() || "visitor";
@@ -504,16 +482,6 @@ export const useOffice = create<OfficeState>((set) => ({
   saveCall: (note) =>
     set((s) => ({
       calls: [{ ...note, id: `call-${Date.now()}` }, ...s.calls],
-      tasks: note.notes.trim()
-        ? [
-            {
-              id: `t-${Date.now()}`,
-              title: "متابعة بعد الاستشارة المرئية",
-              done: false,
-            },
-            ...s.tasks,
-          ]
-        : s.tasks,
     })),
   updateClientNote: (id, note) =>
     set((s) => ({
