@@ -61,6 +61,8 @@ function mapAuthError(message: string) {
   if (m.includes("password") && m.includes("short")) return "كلمة المرور ٨ أحرف على الأقل.";
   if (m.includes("password")) return "تعذّر قبول كلمة المرور. استخدم ٨ أحرف على الأقل.";
   // A provider with no client id/secret configured fails before any redirect.
+  if (m.includes("provider_unavailable"))
+    return "الدخول عبر Google غير مفعّل بعد. استخدم البريد وكلمة المرور.";
   if (m.includes("provider") || m.includes("oauth") || m.includes("internal") || m.includes("500"))
     return "الدخول عبر هذا المزوّد غير متاح حالياً. استخدم البريد وكلمة المرور.";
   return "تعذّر إتمام العملية. حاول مرة أخرى.";
