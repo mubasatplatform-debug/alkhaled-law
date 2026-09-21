@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { SERVICE_META, type ServiceSlug } from "@/lib/types";
 import { useOffice } from "@/lib/store";
 import {
-  TODAY,
+  todayISO,
   addDays,
   clientPreference,
   dayName,
@@ -35,14 +35,14 @@ function ServicePage() {
     const out: string[] = [];
     let guard = 0;
     while (out.length < 4 && guard < 14) {
-      const iso = addDays(TODAY, guard);
+      const iso = addDays(todayISO(), guard);
       guard += 1;
       if (smartSuggest(appointments, iso, duration, prefer).length) out.push(iso);
     }
     return out;
   }, [appointments, duration, prefer]);
 
-  const [day, setDay] = useState(days[0] ?? TODAY);
+  const [day, setDay] = useState(days[0] ?? todayISO());
   const [startMin, setStartMin] = useState<number | null>(null);
   const [channel, setChannel] = useState<"video" | "voice">("video");
   const slots = smartSuggest(appointments, day, duration, prefer);

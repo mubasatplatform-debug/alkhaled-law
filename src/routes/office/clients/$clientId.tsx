@@ -25,7 +25,7 @@ import {
   nextFor,
   preferenceLabel,
   smartSuggest,
-  TODAY,
+  todayISO,
 } from "@/lib/schedule";
 import {
   DOC_STATUS,
@@ -444,7 +444,7 @@ function NextCard({
   onBook: (date: string, startMin: number) => void;
   appointments: Appointment[];
 }) {
-  const suggestions = next ? [] : smartSuggest(appointments, TODAY, 30, prefer);
+  const suggestions = next ? [] : smartSuggest(appointments, todayISO(), 30, prefer);
   return (
     <section className="rounded-3xl border border-line bg-card p-5">
       <h2 className="mb-3 font-semibold">المتابعة القادمة</h2>
@@ -490,7 +490,7 @@ function NextCard({
               <button
                 key={s.startMin}
                 type="button"
-                onClick={() => onBook(TODAY, s.startMin)}
+                onClick={() => onBook(todayISO(), s.startMin)}
                 className="rounded-full bg-lime px-3 py-1.5 text-xs font-medium text-paper"
               >
                 {s.label}
