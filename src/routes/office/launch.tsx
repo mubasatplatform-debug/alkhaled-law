@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Bell, Check, Clock, LogIn, Mic, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { describeDb } from "@/lib/db-readiness";
+import { getInfraReadiness, type InfraReadiness } from "@/lib/infra-readiness";
 import { loadLaunch, saveLaunch, type LaunchState } from "@/lib/launch";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +30,7 @@ const STEPS: {
     key: "publicOk",
     n: "02",
     title: "مسار دخول العميل",
-    body: "Google أو X أو البريد. بعد الدخول يفتح المساعد ويحجز من نفس المحادثة.",
+    body: "Google أو البريد. بعد الدخول يفتح المساعد ويحجز من نفس المحادثة.",
     action: "مراجعة صفحة الدخول",
     href: "/login",
   },
@@ -60,6 +62,7 @@ const STEPS: {
 function LaunchPage() {
   const [state, setState] = useState<LaunchState | null>(null);
   const [busy, setBusy] = useState<keyof LaunchState | null>(null);
+  const [infra, setInfra] = useState<InfraReadiness | null>(null);
 
   useEffect(() => {
     void loadLaunch()
@@ -73,6 +76,11 @@ function LaunchPage() {
           remindersOn: false,
         }),
       );
+  }, []);
+
+  useEffect(() => {
+    // Best effort: a failed probe must not hide the checklist itself.
+    void getInfraReadiness().then(setInfra).catch(() => setInfra(null));
   }, []);
 
   const toggle = async (key: keyof LaunchState) => {
@@ -103,6 +111,21 @@ function LaunchPage() {
           خمسة مسارات قبل الاعتماد النهائي. ثبّت كل خطوة بعد تجربتها.
         </p>
       </div>
+
+      {infra && (() => {
+        const db = describeDb(infra.db);
+        return (
+          <div
+            className={cn(
+              "rounded-3xl border p-5",
+              db.durable ? "border-line bg-ok/40" : "border-line bg-warn",
+            )}
+          >
+            <p className="font-semibold text-ink">{db.title}</p>
+            <p className="mt-1 text-sm leading-relaxed text-ink/80">{db.body}</p>
+          </div>
+        );
+      })()}
 
       <div className="rounded-3xl border border-line bg-card p-5 shadow-card">
         <div className="flex items-center justify-between text-sm">
