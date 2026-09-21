@@ -13,12 +13,14 @@ import {
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { clockLabel, describeDays } from "@/lib/office-hours";
 import { useOfficeHours } from "@/lib/office-hours-api";
+import { getSignInOptions } from "@/lib/auth/sign-in-options";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (raw: Record<string, unknown>): { next?: string } => ({
     next: typeof raw.next === "string" ? raw.next : undefined,
   }),
+  loader: () => getSignInOptions(),
   component: Login,
 });
 
@@ -76,6 +78,7 @@ function postLoginPath(next?: string): "/office" | "/portal" {
 
 function Login() {
   const { next } = Route.useSearch();
+  const { google: googleAvailable } = Route.useLoaderData();
   const dest = postLoginPath(next);
   const { user, isPending } = useCurrentUserState();
   const [mode, setMode] = useState<"in" | "up">("in");
@@ -216,7 +219,9 @@ function Login() {
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-5 py-8 sm:px-8 lg:justify-center">
           <div className="mb-6 hidden lg:block">
             <h2 className="text-2xl">أهلاً بك</h2>
-            <p className="mt-1 text-sm text-muted">دخول سريع — Google أو البريد.</p>
+            <p className="mt-1 text-sm text-muted">
+              {googleAvailable ? "دخول سريع — Google أو البريد." : "ادخل ببريدك وكلمة المرور."}
+            </p>
           </div>
 
           <div className="grid grid-cols-2 rounded-full bg-tile p-1">
@@ -248,7 +253,7 @@ function Login() {
             </button>
           </div>
 
-          {authEnabled ? (
+          {authEnabled && googleAvailable ? (
             <div className="mt-6 space-y-2">
               {GROK_PROVIDERS.map((p) => {
                 const google = p.idp === "google";
@@ -272,15 +277,19 @@ function Login() {
               })}
               <p className="pt-1 text-center text-xs text-muted">أسرع طريقة — بدون كلمة مرور</p>
             </div>
-          ) : (
+          ) : authEnabled ? null : (
             <p className="mt-6 text-sm text-muted">الدخول غير مفعّل في هذه البيئة.</p>
           )}
 
-          <div className="my-5 flex items-center gap-3 text-xs text-muted">
-            <span className="h-px flex-1 bg-line" />
-            أو بالبريد
-            <span className="h-px flex-1 bg-line" />
-          </div>
+          {authEnabled && googleAvailable ? (
+            <div className="my-5 flex items-center gap-3 text-xs text-muted">
+              <span className="h-px flex-1 bg-line" />
+              أو بالبريد
+              <span className="h-px flex-1 bg-line" />
+            </div>
+          ) : (
+            <div className="mt-6" />
+          )}
 
           <form className="space-y-3" onSubmit={submitEmail}>
             {mode === "up" && (

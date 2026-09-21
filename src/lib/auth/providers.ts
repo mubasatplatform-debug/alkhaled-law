@@ -28,3 +28,15 @@ export type GrokProvider = {
 export const GROK_PROVIDERS: readonly GrokProvider[] = [
   { providerId: "grok-google", idp: "google", label: "Google" },
 ];
+
+/**
+ * Whether sign-in may federate through the broker at all. Its shared
+ * live-preview client is meant for the broker's own preview hosts; a deployment
+ * with its own public URL (`BETTER_AUTH_URL`) needs a per-app client
+ * (`GROK_AUTH_CLIENT_ID`) from the Grok deployer. Without one, the Google button
+ * sent visitors to a Google consent screen for the broker's owner (xAI) instead
+ * of this office — seen on alkhaled-law.vercel.app on 2026-09-21.
+ */
+export function brokerUsable(opts: { perAppClientId?: string; publicUrl?: string }): boolean {
+  return Boolean(opts.perAppClientId) || !opts.publicUrl;
+}
