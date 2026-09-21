@@ -15,7 +15,8 @@ import { LiveConsultBanner } from "@/components/live-consult-banner";
 import { RequestComposer } from "@/components/request-composer";
 import { StatusPill } from "@/components/status-pill";
 import { Countdown } from "@/components/countdown";
-import { clientById, useOffice } from "@/lib/store";
+import { useOfficeTasks } from "@/lib/office-tasks";
+import { clientById } from "@/lib/store";
 import { useMergedOffice } from "@/lib/office-live";
 import { loadLaunch, type LaunchState } from "@/lib/launch";
 import { todayISO } from "@/lib/schedule";
@@ -25,7 +26,8 @@ export const Route = createFileRoute("/office/")({
 });
 
 function OfficeHome() {
-  const { tasks, toggleTask } = useOffice();
+  const { tasks: allTasks, toggle: toggleTask } = useOfficeTasks();
+  const tasks = (allTasks ?? []).filter((t) => !t.done).slice(0, 6);
   const { requests, appointments, clients, liveCount } = useMergedOffice();
   const [composing, setComposing] = useState(false);
   const [launch, setLaunch] = useState<LaunchState | null>(null);
@@ -283,7 +285,7 @@ function OfficeHome() {
                   <input
                     type="checkbox"
                     checked={t.done}
-                    onChange={() => toggleTask(t.id)}
+                    onChange={() => void toggleTask(t.id)}
                     className="size-4 rounded border-line accent-forest"
                   />
                   <span className={`text-sm ${t.done ? "text-muted line-through" : ""}`}>

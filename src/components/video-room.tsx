@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useConsult } from "@/lib/use-consult";
 import { formatDuration } from "@/lib/utils";
+import { addOfficeTask } from "@/lib/office-tasks";
 import { useOffice } from "@/lib/store";
 import type { Role } from "@/lib/types";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
@@ -153,6 +154,10 @@ export function VideoRoom({
       notes,
       at: "اليوم",
     });
+    if (role === "lawyer" && notes.trim()) {
+      // Best effort: a failed insert must not block ending the call.
+      void addOfficeTask({ data: { title: "متابعة بعد الاستشارة المرئية" } }).catch(() => {});
+    }
     call.hangup();
   };
 
