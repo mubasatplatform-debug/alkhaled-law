@@ -58,7 +58,20 @@ test("non-.sql entries are dropped (readdir also yields the auth/ directory)", (
 
 test("the auth schema ships outside the globbed directory", () => {
   const migrationsDir = join(projectRoot(), "migrations");
-  assert.deepEqual(pendingMigrations(readdirSync(migrationsDir), []), []);
+  const entries = readdirSync(migrationsDir);
+
+  // Both appliers read this directory NON-recursively, so `auth/` arrives as a
+  // plain entry and must never be planned as a migration. Asserted against
+  // whatever the workspace holds, because an app built on this template adds
+  // its own migrations here alongside `auth/`.
+  assert.ok(entries.includes("auth"), "migrations/auth/ must stay out of the glob");
+  const planned = pendingMigrations(entries, []).map((m) => m.name);
+  assert.ok(!planned.includes("auth"), "the auth/ directory was planned as a migration");
+  assert.ok(
+    planned.every((name) => name.endsWith(".sql")),
+    "only .sql files may be planned",
+  );
+
   assert.ok(readdirSync(join(migrationsDir, "auth")).includes("0001_auth.sql"));
 });
 
