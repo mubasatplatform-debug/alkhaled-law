@@ -2,7 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
-import { formatDateLabel, formatTime, hasConflict, OFFICE_SEED_OCC } from "@/lib/schedule";
+import { applyStoredOfficeHours } from "@/lib/office-hours-api";
+import {
+  formatDateLabel,
+  formatTime,
+  hasConflict,
+  OFFICE_SEED_OCC,
+  withinOfficeHours,
+} from "@/lib/schedule";
 import { useOffice } from "@/lib/store";
 import type { Appointment, Client, LegalRequest, ServiceSlug } from "@/lib/types";
 import { SERVICE_LABELS } from "@/lib/types";
@@ -187,6 +194,10 @@ export const rescheduleOfficeBooking = createServerFn({ method: "POST" })
     `;
     if (!mine[0]) return { ok: false, error: "الموعد غير موجود" };
     const durationMin = mine[0].duration_min;
+    await applyStoredOfficeHours();
+    if (!withinOfficeHours(date, startMin, durationMin)) {
+      return { ok: false, error: "هذا الوقت خارج ساعات عمل المكتب." };
+    }
     const existing = await sql<{ date: string; start_min: number; duration_min: number }>`
       select date, start_min, duration_min from client_bookings
       where status <> 'cancelled' and id <> ${id}

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { OfficeHoursForm } from "@/components/office-hours-form";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/office/settings")({
@@ -22,10 +23,7 @@ function SettingsPage() {
       </section>
       <section className="rounded-3xl border border-line bg-card p-5">
         <h2 className="font-medium">ساعات العمل</h2>
-        <p className="mt-1 text-sm text-muted">
-          الأحد–الخميس · 9:00 ص–5:00 م · خانات 30 دقيقة · فاصل 15 دقيقة بين الجلسات.
-        </p>
-        <p className="mt-2 text-sm text-muted">الجمعة والسبت عطلة. الاقتراحات تراعي تفضيل العميل.</p>
+        <OfficeHoursForm />
       </section>
       <section className="rounded-3xl border border-line bg-card p-5">
         <h2 className="font-medium">تجهيز الإطلاق</h2>

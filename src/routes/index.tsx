@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { describeDays } from "@/lib/office-hours";
+import { useOfficeHours } from "@/lib/office-hours-api";
 import { useOffice } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import type { ServiceSlug } from "@/lib/types";
@@ -130,6 +132,7 @@ function Home() {
   const addIntake = useOffice((s) => s.addIntake);
   const [sent, setSent] = useState<string | null>(null);
   const [faq, setFaq] = useState<number | null>(null);
+  const { hours } = useOfficeHours();
 
   return (
     <div className="min-h-dvh overflow-x-hidden bg-cream">
@@ -195,7 +198,7 @@ function Home() {
           />
           <Chip
             icon={Calendar}
-            label="الأحد–الخميس"
+            label={describeDays(hours.workDays)}
             className="absolute bottom-4 right-4 hidden sm:flex lg:bottom-8 lg:right-10"
           />
         </div>

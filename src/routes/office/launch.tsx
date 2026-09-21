@@ -3,6 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Bell, Check, Clock, LogIn, Mic, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { describeDb } from "@/lib/db-readiness";
+import { describeOfficeHours } from "@/lib/office-hours";
+import { useOfficeHours } from "@/lib/office-hours-api";
 import { getInfraReadiness, type InfraReadiness } from "@/lib/infra-readiness";
 import { loadLaunch, saveLaunch, type LaunchState } from "@/lib/launch";
 import { cn } from "@/lib/utils";
@@ -23,7 +25,8 @@ const STEPS: {
     key: "hoursOk",
     n: "01",
     title: "ساعات العمل",
-    body: "الأحد–الخميس · 9 صباحاً–5 مساءً · خانات 30 دقيقة · فاصل 15 دقيقة.",
+    // Replaced at render time with the saved hours.
+    body: "",
     action: "تأكيد الساعات",
   },
   {
@@ -63,6 +66,7 @@ function LaunchPage() {
   const [state, setState] = useState<LaunchState | null>(null);
   const [busy, setBusy] = useState<keyof LaunchState | null>(null);
   const [infra, setInfra] = useState<InfraReadiness | null>(null);
+  const { hours } = useOfficeHours();
 
   useEffect(() => {
     void loadLaunch()
@@ -156,7 +160,9 @@ function LaunchPage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <h2 className="font-semibold">{s.title}</h2>
-                  <p className="mt-1 text-sm text-muted">{s.body}</p>
+                  <p className="mt-1 text-sm text-muted">
+                    {s.key === "hoursOk" ? `${describeOfficeHours(hours)}.` : s.body}
+                  </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {s.href && (
                       <Button asChild variant="outline" size="sm">

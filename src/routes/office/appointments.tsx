@@ -14,14 +14,15 @@ import { Button } from "@/components/ui/button";
 import { Countdown } from "@/components/countdown";
 import { clientById, useOffice } from "@/lib/store";
 import { useMergedOffice } from "@/lib/office-live";
+import { clockLabel, describeDays } from "@/lib/office-hours";
+import { useOfficeHours } from "@/lib/office-hours-api";
 import type { Appointment, Client } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   SLOT,
   todayISO,
-  WORK_END,
-  WORK_START,
   activeOnDate,
+  getActiveOfficeHours,
   addDays,
   clientPreference,
   dayName,
@@ -46,9 +47,6 @@ export const Route = createFileRoute("/office/appointments")({
   component: AppointmentsPage,
 });
 
-const SLOT_COUNT = (WORK_END - WORK_START) / SLOT;
-const DAY_SPAN = WORK_END - WORK_START;
-
 function AppointmentsPage() {
   const {
     addAppointment,
@@ -56,6 +54,8 @@ function AppointmentsPage() {
     confirmSlot,
   } = useOffice();
   const { appointments, clients, cancelLive, rescheduleLive } = useMergedOffice();
+  // Re-renders the page (and every scheduler call under it) once saved hours load.
+  const { hours } = useOfficeHours();
   const [selected, setSelected] = useState(todayISO);
   const [focus, setFocus] = useState<string | null>(null);
   const [composer, setComposer] = useState<"off" | "create" | "move">("off");
@@ -173,14 +173,17 @@ function AppointmentsPage() {
 
       {!isWorkday(selected) ? (
         <p className="rounded-3xl border border-line bg-card px-4 py-8 text-center text-sm text-muted">
-          عطلة المكتب. الأحد–الخميس من 9 ص إلى 5 م.
+          عطلة المكتب. الدوام: {describeDays(hours.workDays)} من {clockLabel(hours.startMin)} إلى{" "}
+          {clockLabel(hours.endMin)}.
         </p>
       ) : (
         <div className="grid min-w-0 gap-4 xl:grid-cols-[1fr_20rem]">
           <section className="min-w-0 overflow-hidden rounded-3xl border border-line bg-card">
             <header className="flex items-center justify-between border-b border-line px-4 py-3">
               <h2 className="font-semibold">{formatDateLabel(selected)}</h2>
-              <span className="text-xs text-muted">خانات 30 د · فاصل 15 د</span>
+              <span className="text-xs text-muted">
+                خانات {SLOT} د · {hours.bufferMin ? `فاصل ${hours.bufferMin} د` : "بلا فاصل"}
+              </span>
             </header>
             <div className="space-y-4 p-4">
               <DayRuler
@@ -356,11 +359,17 @@ function DayRuler({
   onSelect: (id: string) => void;
   onEmpty: (startMin: number) => void;
 }) {
-  const hours = Array.from({ length: 8 }, (_, i) => WORK_START + i * 60);
+  const { startMin: dayStart, endMin: dayEnd } = getActiveOfficeHours();
+  const DAY_SPAN = dayEnd - dayStart;
+  const SLOT_COUNT = DAY_SPAN / SLOT;
+  const hourMarks = Array.from({ length: Math.ceil(DAY_SPAN / 60) }, (_, i) => dayStart + i * 60);
   return (
     <div>
-      <div className="mb-1 grid grid-cols-8 text-xs text-muted">
-        {hours.map((t) => (
+      <div
+        className="mb-1 grid text-xs text-muted"
+        style={{ gridTemplateColumns: `repeat(${hourMarks.length}, minmax(0, 1fr))` }}
+      >
+        {hourMarks.map((t) => (
           <div key={t} className="tabular-nums">
             {formatHour(t)}
           </div>
@@ -371,8 +380,8 @@ function DayRuler({
           <button
             key={i}
             type="button"
-            aria-label={formatTime(WORK_START + i * SLOT)}
-            onClick={() => onEmpty(WORK_START + i * SLOT)}
+            aria-label={formatTime(dayStart + i * SLOT)}
+            onClick={() => onEmpty(dayStart + i * SLOT)}
             className="absolute top-0 h-full hover:bg-forest/10"
             style={{
               insetInlineStart: `${((i * SLOT) / DAY_SPAN) * 100}%`,
@@ -389,7 +398,7 @@ function DayRuler({
               onClick={() => onSelect(a.id)}
               title={`${a.time} ${a.title} ${a.withLabel}`}
               style={{
-                insetInlineStart: `${((a.startMin - WORK_START) / DAY_SPAN) * 100}%`,
+                insetInlineStart: `${((a.startMin - dayStart) / DAY_SPAN) * 100}%`,
                 width: `${(a.durationMin / DAY_SPAN) * 100}%`,
               }}
               className={cn(
@@ -561,7 +570,8 @@ function SmartPanel({
         <h3 className="text-sm font-semibold">اقتراحات ذكية</h3>
       </div>
       <p className="mt-1 text-xs text-muted">
-        عبدالله يفضّل المساء، مؤسسة النخيل تفضّل الصباح. الفاصل 15 د بين الجلسات.
+        عبدالله يفضّل المساء، مؤسسة النخيل تفضّل الصباح. الفاصل {getActiveOfficeHours().bufferMin} د بين
+        الجلسات.
       </p>
       <div className="mt-3">
         <div className="text-xs text-muted">مساءً — لعبدالله</div>
@@ -658,7 +668,7 @@ function Composer({
 
   const pick = (startMin: number) => {
     if (hasConflict(calendar, day, startMin, duration, moving?.id)) {
-      setError("هذا الوقت يتعارض مع موعد قائم أو مع فاصل 15 د.");
+      setError(`هذا الوقت يتعارض مع موعد قائم أو مع فاصل ${getActiveOfficeHours().bufferMin} د.`);
       return;
     }
     if (mode === "move" && moving) {
