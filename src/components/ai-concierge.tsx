@@ -1,6 +1,20 @@
 import { useEffect, useRef, useState } from "react";
+
+// One sample of silence: gives the shared <audio> element a source to start on
+// inside the click, before the generated clip exists.
+const SILENT_WAV =
+  "data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==";
 import { Link } from "@tanstack/react-router";
-import { ArrowUp, CalendarClock, Mic, ShieldCheck, Sparkles, Square, Video, Volume2 } from "lucide-react";
+import {
+  ArrowUp,
+  CalendarClock,
+  Mic,
+  ShieldCheck,
+  Sparkles,
+  Square,
+  Video,
+  Volume2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   confirmConciergeSlot,
@@ -76,6 +90,7 @@ export function AiConcierge({ clientName }: { clientName: string }) {
   const [recSec, setRecSec] = useState(0);
   const [voiceErr, setVoiceErr] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [preparingId, setPreparingId] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const lastTopic = useRef("");
   const recRef = useRef<MediaRecorder | null>(null);
@@ -83,6 +98,9 @@ export function AiConcierge({ clientName }: { clientName: string }) {
   const streamRef = useRef<MediaStream | null>(null);
   const tickRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Bumped on every play/stop tap; a response whose ticket is stale is dropped
+  // instead of starting a clip the visitor already cancelled.
+  const speakTicket = useRef(0);
 
   useEffect(() => {
     let live = true;
@@ -209,27 +227,47 @@ export function AiConcierge({ clientName }: { clientName: string }) {
   };
 
   const playTurn = async (turn: ChatTurn) => {
-    if (speakingId === turn.id) {
-      audioRef.current?.pause();
+    // Any tap cancels what came before: the clip that is playing and the
+    // response still on its way (speech can take ~25 s to generate).
+    const ticket = (speakTicket.current += 1);
+    audioRef.current?.pause();
+    if (speakingId === turn.id || preparingId === turn.id) {
       setSpeakingId(null);
+      setPreparingId(null);
       return;
     }
-    setSpeakingId(turn.id);
+    // Reuse one element and start it inside the click, so the later play()
+    // is not a fresh un-gestured playback attempt (Safari refuses those).
+    const audio = audioRef.current ?? new Audio();
+    audioRef.current = audio;
+    if (!audio.src) audio.src = SILENT_WAV;
+    audio.muted = true;
+    void audio.play().catch(() => {});
+    audio.pause();
+    audio.muted = false;
+    setPreparingId(turn.id);
+    setSpeakingId(null);
     try {
       const out = await speakConcierge({ data: { text: turn.content } });
+      if (ticket !== speakTicket.current) return;
+      setPreparingId(null);
       if ("error" in out) {
         setVoiceErr(out.error);
-        setSpeakingId(null);
         return;
       }
-      const url = `data:${out.mime};base64,${out.audio}`;
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => setSpeakingId(null);
-      audio.onerror = () => setSpeakingId(null);
+      audio.src = `data:${out.mime};base64,${out.audio}`;
+      audio.onended = () => {
+        if (ticket === speakTicket.current) setSpeakingId(null);
+      };
+      audio.onerror = () => {
+        if (ticket === speakTicket.current) setSpeakingId(null);
+      };
+      setSpeakingId(turn.id);
       await audio.play();
     } catch {
+      if (ticket !== speakTicket.current) return;
       setVoiceErr("تعذّر تشغيل الصوت.");
+      setPreparingId(null);
       setSpeakingId(null);
     }
   };
@@ -285,12 +323,15 @@ export function AiConcierge({ clientName }: { clientName: string }) {
                   <Sparkles className="size-3.5 text-paper" />
                   مساعد المكتب
                 </div>
-                <p className="text-xs text-paper/80">اكتب أو سجّل صوتك — يستشير ويحجز في نفس المحادثة</p>
+                <p className="text-xs text-paper/80">
+                  اكتب أو سجّل صوتك — يستشير ويحجز في نفس المحادثة
+                </p>
               </div>
             </div>
             <div className="p-4">
               <p className="text-sm leading-relaxed text-muted">
-                اكتب موضوعك أو اضغط المايك وتكلم — عقد، عمل، أحوال شخصية، أو أي نزاع. أعطيك توجيهاً أولياً، وأعرض الأوقات المتاحة لجلسة مع المحامي خالد داخل النظام.
+                اكتب موضوعك أو اضغط المايك وتكلم — عقد، عمل، أحوال شخصية، أو أي نزاع. أعطيك توجيهاً
+                أولياً، وأعرض الأوقات المتاحة لجلسة مع المحامي خالد داخل النظام.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {STARTERS.map((s) => (
@@ -331,8 +372,17 @@ export function AiConcierge({ clientName }: { clientName: string }) {
                   className="mt-2 flex items-center gap-1 text-[11px] text-muted hover:text-forest"
                   aria-label="استمع للرد"
                 >
-                  <Volume2 className={cn("size-3.5", speakingId === t.id && "text-forest")} />
-                  {speakingId === t.id ? "جارٍ التشغيل" : "استمع"}
+                  <Volume2
+                    className={cn(
+                      "size-3.5",
+                      (speakingId === t.id || preparingId === t.id) && "text-forest",
+                    )}
+                  />
+                  {preparingId === t.id
+                    ? "جارٍ التحضير…"
+                    : speakingId === t.id
+                      ? "جارٍ التشغيل"
+                      : "استمع"}
                 </button>
               )}
             </div>
@@ -413,9 +463,18 @@ export function AiConcierge({ clientName }: { clientName: string }) {
                   : "text-forest hover:bg-paper",
             )}
           >
-            {rec === "on" ? <Square className="size-3.5 fill-current" /> : <Mic className="size-4" />}
+            {rec === "on" ? (
+              <Square className="size-3.5 fill-current" />
+            ) : (
+              <Mic className="size-4" />
+            )}
           </button>
-          <Button type="submit" size="icon" disabled={busy || recLocked || !draft.trim()} aria-label="إرسال">
+          <Button
+            type="submit"
+            size="icon"
+            disabled={busy || recLocked || !draft.trim()}
+            aria-label="إرسال"
+          >
             <ArrowUp className="size-4" />
           </Button>
         </div>

@@ -6,6 +6,7 @@ import {
   isWorkday,
   OFFICE_SEED_OCC,
   setActiveOfficeHours,
+  slotInputProblem,
   todayISO,
   withinOfficeHours,
 } from "./schedule.ts";
@@ -61,5 +62,31 @@ describe("scheduler follows the saved office hours", () => {
     } finally {
       setActiveOfficeHours(DEFAULT_OFFICE_HOURS);
     }
+  });
+});
+
+describe("slotInputProblem", () => {
+  const today = "2026-09-23";
+
+  it("accepts a well-formed slot from today on", () => {
+    assert.equal(slotInputProblem("2026-09-23", 600, today), null);
+    assert.equal(slotInputProblem("2026-12-01", 0, today), null);
+  });
+
+  it("rejects a date that is not exactly YYYY-MM-DD", () => {
+    // "2026-9-24" sorts and compares as a different string from "2026-09-24",
+    // so the conflict checks would miss the bookings already stored.
+    assert.equal(slotInputProblem("2026-9-24", 600, today), "shape");
+    assert.equal(slotInputProblem("2026-09-24T10:00", 600, today), "shape");
+    assert.equal(slotInputProblem("", 600, today), "shape");
+  });
+
+  it("rejects a minute that is not a whole number", () => {
+    assert.equal(slotInputProblem("2026-09-24", 600.5, today), "shape");
+    assert.equal(slotInputProblem("2026-09-24", Number.NaN, today), "shape");
+  });
+
+  it("rejects a day that has passed", () => {
+    assert.equal(slotInputProblem("2026-09-22", 600, today), "past");
   });
 });

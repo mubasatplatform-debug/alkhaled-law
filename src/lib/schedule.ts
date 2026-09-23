@@ -47,16 +47,7 @@ export const OFFICE_SEED_OCC: { date: string; startMin: number; durationMin: num
   { date: addDays(TODAY, 2), startMin: 9 * 60 + 30, durationMin: 45 },
 ];
 
-
-const DAY_NAMES = [
-  "الأحد",
-  "الاثنين",
-  "الثلاثاء",
-  "الأربعاء",
-  "الخميس",
-  "الجمعة",
-  "السبت",
-];
+const DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
 const MONTHS = [
   "يناير",
@@ -140,6 +131,22 @@ export function withinOfficeHours(date: string, startMin: number, durationMin: n
   );
 }
 
+/**
+ * A booking slot as it arrives from an untrusted source (the assistant's JSON
+ * or a client request): the date must be exactly YYYY-MM-DD because every
+ * availability check compares dates as strings, the minute must be a whole
+ * number, and a slot in the past cannot be booked.
+ */
+export function slotInputProblem(
+  date: string,
+  startMin: number,
+  today: string = todayISO(),
+): "shape" | "past" | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isInteger(startMin)) return "shape";
+  if (date < today) return "past";
+  return null;
+}
+
 export function durationFor(kind: Appointment["kind"]) {
   if (kind === "review") return 45;
   return 30;
@@ -152,9 +159,7 @@ export function titleFor(kind: Appointment["kind"]) {
 }
 
 export function activeOnDate(list: Appointment[], date: string) {
-  return list.filter(
-    (a) => a.date === date && !a.live && a.status !== "cancelled",
-  );
+  return list.filter((a) => a.date === date && !a.live && a.status !== "cancelled");
 }
 
 function blocks(a: Appointment) {
@@ -239,7 +244,9 @@ export function smartSuggest(
 }
 
 export function gaps(list: Appointment[], date: string) {
-  const day = activeOnDate(list, date).slice().sort((a, b) => a.startMin - b.startMin);
+  const day = activeOnDate(list, date)
+    .slice()
+    .sort((a, b) => a.startMin - b.startMin);
   const result: { startMin: number; minutes: number; label: string }[] = [];
   const { startMin: dayStart, endMin: dayEnd, bufferMin } = activeHours;
   let cursor = dayStart;
@@ -292,15 +299,11 @@ export function nowMinutes() {
   return n.getHours() * 60 + n.getMinutes();
 }
 
-
-
 export function minutesUntil(date: string, startMin: number) {
   const today = todayISO();
   if (date < today) return -Infinity;
   if (date > today) {
-    const days = Math.round(
-      (parseDate(date).getTime() - parseDate(today).getTime()) / 86400000,
-    );
+    const days = Math.round((parseDate(date).getTime() - parseDate(today).getTime()) / 86400000);
     return days * 24 * 60 + startMin - nowMinutes();
   }
   return startMin - nowMinutes();
@@ -325,12 +328,7 @@ export function upcoming(list: Appointment[]) {
 
 export function nextFor(list: Appointment[], clientId?: string) {
   return list
-    .filter(
-      (a) =>
-        !a.live &&
-        a.status !== "cancelled" &&
-        (!clientId || a.clientId === clientId),
-    )
+    .filter((a) => !a.live && a.status !== "cancelled" && (!clientId || a.clientId === clientId))
     .map((a) => ({ a, eta: minutesUntil(a.date, a.startMin) }))
     .filter((x) => x.eta > -15)
     .sort((x, y) => x.eta - y.eta)[0];
