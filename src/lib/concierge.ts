@@ -14,6 +14,7 @@ import {
 } from "@/lib/ai-provider";
 import {
   todayISO,
+  slotInputProblem,
   addDays,
   dayName,
   formatTime,
@@ -199,11 +200,14 @@ async function loadHistory(userId: string): Promise<ChatTurn[]> {
     content: string;
     booked_json: string | null;
   }>`
-    select id, role, content, booked_json
-    from concierge_messages
-    where user_id = ${userId}
+    select id, role, content, booked_json from (
+      select id, role, content, booked_json, created_at
+      from concierge_messages
+      where user_id = ${userId}
+      order by created_at desc
+      limit 40
+    ) recent
     order by created_at asc
-    limit 40
   `;
   return rows
     .filter((r) => r.role === "user" || r.role === "assistant")
@@ -242,6 +246,10 @@ async function insertBooking(
   input: { date: string; startMin: number; kind: BookingCard["kind"]; summary: string },
 ): Promise<BookingCard | { error: string }> {
   const durationMin = 30;
+  // Both validators pass their input through, so the slot is untrusted here.
+  const problem = slotInputProblem(input.date, input.startMin);
+  if (problem === "shape") return { error: "هذا الوقت غير صالح. اختر وقتاً من القائمة." };
+  if (problem === "past") return { error: "هذا الوقت مضى. اختر وقتاً قادماً." };
   if (!withinOfficeHours(input.date, input.startMin, durationMin)) {
     return { error: "هذا الوقت خارج ساعات عمل المكتب. اختر وقتاً من القائمة." };
   }
@@ -263,21 +271,32 @@ async function insertBooking(
   }
   const id = `bk-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const title = input.kind === "review" ? "مراجعة عقد" : "استشارة مرئية";
-  await sql`
-    insert into client_bookings
-      (id, user_id, date, start_min, duration_min, kind, status, title, summary)
-    values (
-      ${id},
-      ${userId},
-      ${input.date},
-      ${input.startMin},
-      ${durationMin},
-      ${input.kind},
-      ${"confirmed"},
-      ${title},
-      ${input.summary}
-    )
-  `;
+  try {
+    await sql`
+      insert into client_bookings
+        (id, user_id, date, start_min, duration_min, kind, status, title, summary)
+      values (
+        ${id},
+        ${userId},
+        ${input.date},
+        ${input.startMin},
+        ${durationMin},
+        ${input.kind},
+        ${"confirmed"},
+        ${title},
+        ${input.summary}
+      )
+  
+    `;
+  } catch (err) {
+    // 23505: the slot's unique index (migrations/0007) — another confirmation
+    // landed between the availability check above and this insert.
+    const code = (err as { code?: string }).code;
+    if (code === "23505" || /duplicate key value/i.test(String(err))) {
+      return { error: "هذا الوقت لم يعد متاحاً. اختر وقتاً آخر." };
+    }
+    throw err;
+  }
   return {
     id,
     date: input.date,
@@ -441,7 +460,9 @@ export const sendConcierge = createServerFn({ method: "POST" })
 
 export const confirmConciergeSlot = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { date: string; startMin: number; occupancy: Occupancy[]; summary?: string }) => input)
+  .validator(
+    (input: { date: string; startMin: number; occupancy: Occupancy[]; summary?: string }) => input,
+  )
   .handler(async ({ data, context }): Promise<{ turn: ChatTurn }> => {
     await applyStoredOfficeHours();
     const occupancy = await globalOcc(data.occupancy ?? []);
